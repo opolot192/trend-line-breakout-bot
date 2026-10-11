@@ -24,14 +24,16 @@ class BacktestEngine:
         initial_capital: float = 10000.0,
         position_fraction: float = 0.15,
         stop_loss_pct: float = 0.02,
-        take_profit_pct: float = 0.05,
+        take_profit_pct: float | None = None,
         transaction_cost_pct: float = 0.0005,
+        risk_reward_ratio: float = 2.0,
     ) -> None:
         self.initial_capital = initial_capital
         self.position_fraction = position_fraction
         self.stop_loss_pct = stop_loss_pct
-        self.take_profit_pct = take_profit_pct
+        self.take_profit_pct = take_profit_pct if take_profit_pct is not None else stop_loss_pct * risk_reward_ratio
         self.transaction_cost_pct = transaction_cost_pct
+        self.risk_reward_ratio = risk_reward_ratio
 
     def run(self, df: pd.DataFrame) -> tuple[pd.DataFrame, List[BacktestTrade], dict]:
         cash = self.initial_capital
@@ -161,5 +163,8 @@ class BacktestEngine:
             "average_trade": round(float(avg_trade), 2),
             "max_drawdown": round(float(max_drawdown) * 100, 2),
             "profit_factor": round(float(profit_factor), 2),
+            "risk_reward_ratio": self.risk_reward_ratio,
+            "stop_loss_pct": self.stop_loss_pct,
+            "take_profit_pct": self.take_profit_pct,
         }
         return equity_df, trades, summary
