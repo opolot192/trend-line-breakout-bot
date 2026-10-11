@@ -6,11 +6,12 @@ from pathlib import Path
 
 from src.data_loader import load_ohlcv_csv
 from src.trend_breakout import add_breakout_signals
+from src.strength_filters import add_strength_filters
 from main_backtest import BacktestEngine
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Trend-line breakout strategy on CSV OHLCV data.")
+    parser = argparse.ArgumentParser(description="Advanced trend-line breakout strategy with ADX, MA, and ATR filters.")
     parser.add_argument("--csv", type=str, required=True, help="Path to OHLCV CSV file.")
     parser.add_argument("--initial-capital", type=float, default=10000.0, help="Starting account balance.")
     parser.add_argument("--position-fraction", type=float, default=0.15, help="Percent of equity used per trade.")
@@ -22,10 +23,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rsi-confirmation", action="store_true", default=True, help="Require RSI momentum confirmation.")
     parser.add_argument("--ma-filter", action="store_true", default=True, help="Require moving average trend alignment.")
     parser.add_argument("--volatility-filter", action="store_true", default=True, help="Require volatility to be in a healthy range.")
+    parser.add_argument("--adx-filter", action="store_true", default=True, help="Require ADX trend strength.")
     parser.add_argument("--short-ma", type=int, default=20, help="Short moving average period.")
     parser.add_argument("--long-ma", type=int, default=50, help="Long moving average period.")
     parser.add_argument("--min-volatility-ratio", type=float, default=0.8, help="Minimum ATR-to-average ratio.")
     parser.add_argument("--max-volatility-ratio", type=float, default=2.5, help="Maximum ATR-to-average ratio.")
+    parser.add_argument("--min-adx", type=float, default=20.0, help="Minimum ADX for trend confirmation.")
     parser.add_argument("--output-trades", type=str, default="trades.json", help="Save trade log to file.")
     return parser.parse_args()
 
@@ -34,14 +37,17 @@ def main() -> None:
     args = parse_args()
 
     print("\n" + "="*60)
-    print("TREND-LINE BREAKOUT BACKTESTER")
+    print("ADVANCED TREND-LINE BREAKOUT BOT")
     print("="*60)
     print(f"Loading CSV: {args.csv}")
 
     df = load_ohlcv_csv(args.csv)
     print(f"Loaded {len(df)} candles from {df['timestamp'].min()} to {df['timestamp'].max()}")
 
-    print("\nDetecting trend lines and signals...")
+    print("\nAdding strength filters...")
+    df = add_strength_filters(df, adx_period=14, min_adx=args.min_adx)
+
+    print("\nDetecting trend lines and breakout signals...")
     df = add_breakout_signals(
         df,
         lookback=args.lookback,
@@ -56,6 +62,13 @@ def main() -> None:
         max_volatility_ratio=args.max_volatility_ratio,
     )
 
+    if args.adx_filter:
+        df["long_breakout"] = df["long_breakout"] & df["trend_strength_ok"]
+        df["short_breakout"] = df["short_breakout"] & df["trend_strength_ok"]
+        df["signal"] = 0
+        df.loc[df["long_breakout"], "signal"] = 1
+        df.loc[df["short_breakout"], "signal"] = -1
+
     long_signals = df[df["long_breakout"]].shape[0]
     short_signals = df[df["short_breakout"]].shape[0]
     print(f"Found {long_signals} long signals and {short_signals} short signals.")
@@ -68,7 +81,7 @@ def main() -> None:
         take_profit_pct=args.take_profit_pct,
     )
 
-    equity_df, trades, summary = engine.run(df)
+    _, trades, summary = engine.run(df)
 
     print("\n" + "="*60)
     print("BACKTEST RESULTS")
