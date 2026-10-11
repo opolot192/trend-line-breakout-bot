@@ -7,14 +7,14 @@ import pandas as pd
 def compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     high = df["high"]
     low = df["low"]
-    close = df["close"].shift(1)
+    close_prev = df["close"].shift(1)
 
     tr1 = high - low
-    tr2 = (high - close).abs()
-    tr3 = (low - close).abs()
+    tr2 = (high - close_prev).abs()
+    tr3 = (low - close_prev).abs()
+
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=period).mean()
-    return atr.fillna(0.0)
+    return tr.rolling(window=period).mean().fillna(0.0)
 
 
 def compute_rsi(df: pd.DataFrame, period: int = 14) -> pd.Series:
@@ -27,9 +27,9 @@ def compute_rsi(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 
 def compute_moving_averages(df: pd.DataFrame, short_period: int = 20, long_period: int = 50) -> tuple[pd.Series, pd.Series]:
-    sma_short = df["close"].rolling(window=short_period).mean()
-    sma_long = df["close"].rolling(window=long_period).mean()
-    return sma_short.fillna(df["close"]), sma_long.fillna(df["close"])
+    short_ma = df["close"].rolling(window=short_period).mean()
+    long_ma = df["close"].rolling(window=long_period).mean()
+    return short_ma.fillna(df["close"]), long_ma.fillna(df["close"])
 
 
 def is_pivot_high(series: pd.Series, idx: int, left: int = 3, right: int = 3) -> bool:

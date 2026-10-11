@@ -42,7 +42,7 @@ class BacktestEngine:
         trades: List[BacktestTrade] = []
         equity_curve = []
 
-        for idx, row in df.iterrows():
+        for _, row in df.iterrows():
             equity = cash + position_units * row["close"]
             equity_curve.append({"timestamp": row["timestamp"], "equity": equity})
 
